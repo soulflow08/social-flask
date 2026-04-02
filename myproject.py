@@ -19,13 +19,21 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     password = db.Column(db.String(120), nullable=False)
 
+class Post(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    content = db.Column(db.Text, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user = db.relationship('User', backref='posts')
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
 @app.route('/')
 def index():
-    return '<h1>Социальная сеть работает! /login</h1>'
+    posts = Post.query.order_by(Post.created_at.desc()).all()
+    return render_template('index.html', posts=posts)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -33,18 +41,14 @@ def register():
         username = request.form['username']
         password = generate_password_hash(request.form['password'], method='pbkdf2:sha256')
         if User.query.filter_by(username=username).first():
-            return 'Пользователь существует!'
+            flash('Username already exists')
+            return redirect(url_for('register'))
         user = User(username=username, password=password)
         db.session.add(user)
         db.session.commit()
+        flash('Registration successful')
         return redirect(url_for('login'))
-    return '''
-    <form method="post">
-        Username: <input name="username"><br>
-        Password: <input name="password" type="password"><br>
-        <button>Register</button>
-    </form>
-    '''
+    return render_template('register.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -53,15 +57,17 @@ def login():
         if user and check_password_hash(user.password, request.form['password']):
             login_user(user)
             return redirect(url_for('index'))
-        return 'Неверный логин/пароль'
-    return '''
-    <form method="post">
-        Username: <input name="username"><br>
-        Password: <input name="password" type="password"><br>
-        <button>Login</button>
-    </form>
-    <p><a href="/register">Register</a></p>
-    '''
+        flash('Invalid username or password')
+    return render_template('login.html')
+
+@app.route('/post', methods=['POST'])
+@login_required
+def post():
+    content = request.form['content']
+    post = Post(content=content, user_id=current_user.id)
+    db.session.add(post)
+    db.session.commit()
+    return redirect(url_for('index'))
 
 @app.route('/logout')
 @login_required
@@ -72,4 +78,4 @@ def logout():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(debug=True, host='0.0.0.0')
+    app.run(debug=True)
