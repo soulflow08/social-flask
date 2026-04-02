@@ -8,7 +8,7 @@ import os
 app = Flask(__name__)  # ← app ПЕРВЫЙ!
 
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or 'your_secret_key'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///social.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -44,4 +44,5 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all()
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(host='0.0.0.0', port=port, debug=True)    with app.app_context():
+        db.create_all()
